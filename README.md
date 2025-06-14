@@ -1,2 +1,2 @@
 # Client-Server-API
-curso de pos graduação do fullCycle
+Código na pasata cotacao-app
