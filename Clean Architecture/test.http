@@ -1,0 +1,11 @@
+### Criar Order
+POST http://localhost:8080/order
+Content-Type: application/json
+
+{
+  "id": "1",
+  "value": 100.0
+}
+
+### Listar Orders
+GET http://localhost:8080/order

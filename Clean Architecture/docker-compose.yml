@@ -1,0 +1,18 @@
+version: '3'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: ordersdb
+    ports:
+      - "5432:5432"
+  app:
+    build: .
+    depends_on:
+      - db
+    ports:
+      - "8080:8080"   # REST
+      - "8081:8081"   # GraphQL
+      - "50051:50051" # gRPC

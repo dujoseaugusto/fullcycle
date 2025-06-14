@@ -1,0 +1,29 @@
+# Etapa de build
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN go build -o app ./main.go
+
+# Etapa final
+FROM alpine:latest
+
+WORKDIR /app
+
+# Instale o driver do banco se necessário (exemplo: Postgres)
+RUN apk add --no-cache ca-certificates
+
+COPY --from=builder /app/app .
+COPY --from=builder /app/migrations ./migrations
+
+# Variáveis de ambiente de exemplo
+ENV DB_DSN=postgres://user:pass@db:5432/ordersdb?sslmode=disable
+
+EXPOSE 8080
+
+CMD ["./app"]
