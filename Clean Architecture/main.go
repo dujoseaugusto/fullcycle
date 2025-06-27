@@ -1,21 +1,22 @@
 package main
 
 import (
+	migrate "CleanArchitecture/migrations"
 	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
-	"migrations/migrate"
-)
 
+	_ "github.com/lib/pq"
+)
 
 func main() {
 
 	db, err := sql.Open("postgres", "postgres://user:pass@db:5432/ordersdb?sslmode=disable")
-	// TODO: Replace this with your actual migration logic or import the correct package.
-	// migrate.RunMigrations(db)
+	if err != nil {
 		log.Fatal(err)
-	}  
+	}
+
 	migrate.RunMigrations(db)
 	defer db.Close()
 
@@ -26,7 +27,7 @@ func main() {
 			return
 		}
 		// TODO: Replace 'nil' with an actual repository implementation, e.g., NewOrderRepository(db)
-		orders, err := ListOrdersUseCase{Repo: nil}.Execute()
+		orders, err := (&ListOrdersUseCase{Repo: nil}).Execute()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
