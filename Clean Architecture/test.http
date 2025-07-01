@@ -1,11 +1,28 @@
-### Criar Order
-POST http://localhost:8080/order
+### Health Check
+GET http://localhost:8081/health
+
+### List all orders
+GET http://localhost:8081/orders
+
+### Get order by ID
+GET http://localhost:8081/orders/order-123
+
+### Create a new order
+POST http://localhost:8081/orders
 Content-Type: application/json
 
 {
-  "id": "1",
-  "value": 100.0
+  "id": "order-123",
+  "value": 99.99
 }
 
-### Listar Orders
-GET http://localhost:8080/order
+### Update an order
+PUT http://localhost:8081/orders/order-123
+Content-Type: application/json
+
+{
+  "value": 149.99
+}
+
+### Delete an order
+DELETE http://localhost:8081/orders/order-123
