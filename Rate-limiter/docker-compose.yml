@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: rate-limiter-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rate-limiter-app
+    ports:
+      - "8080:8080"
+    environment:
+      - RATE_LIMITER_IP_LIMIT=5
+      - RATE_LIMITER_IP_BLOCK_DURATION=300
+      - RATE_LIMITER_TOKEN_ENABLED=true
+      - RATE_LIMITER_TOKENS=abc123:10:600;xyz789:20:900
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - SERVER_PORT=8080
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    working_dir: /app
+
+volumes:
+  redis_data:
