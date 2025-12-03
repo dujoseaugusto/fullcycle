@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -46,29 +47,27 @@ func (m *RateLimiterMiddleware) Handler(next http.Handler) http.Handler {
 		}
 
 		// Verifica o limite
-		allowed, _, _, err := m.limiter.CheckLimit(ctx, identifier, isToken)
+		allowed, remaining, retryAfter, err := m.limiter.CheckLimit(ctx, identifier, isToken)
 		if err != nil {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
 
-		// Adiciona headers de rate limit
-		w.Header().Set("X-RateLimit-Limit", "")
-		if !isToken {
-			w.Header().Set("X-RateLimit-Remaining", "")
-		}
-
 		if !allowed {
-			w.Header().Set("Retry-After", "")
+			// Requisição bloqueada
+			w.Header().Set("Retry-After", fmt.Sprintf("%d", retryAfter))
 			http.Error(w, BlockedMessage, http.StatusTooManyRequests)
 			return
 		}
 
+		// Requisição permitida - adiciona headers informativos
+		if !isToken {
+			w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", remaining))
+		}
+
 		next.ServeHTTP(w, r)
 	})
-}
-
-// ExtractIP extrai o endereço IP da requisição
+} // ExtractIP extrai o endereço IP da requisição
 func ExtractIP(r *http.Request) string {
 	// Tenta obter o IP do header X-Forwarded-For (para proxies)
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {

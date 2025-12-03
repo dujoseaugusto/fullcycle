@@ -84,25 +84,18 @@ func main() {
 	// Cria o middleware
 	rateLimiterMiddleware := mw.NewRateLimiterMiddleware(rateLimiter)
 
-	// Cria o mux
-	mux := http.NewServeMux()
+	// Cria o mux para rotas protegidas
+	protectedMux := http.NewServeMux()
 
-	// Rota de health check
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"healthy"}`))
-	})
-
-	// Rota de teste
-	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+	// Rota de teste (protegida por rate limiting)
+	protectedMux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Welcome to Rate Limiter! Your request was allowed."))
 	})
 
 	// Rota para debug (mostra informações de rate limiting)
-	mux.HandleFunc("GET /debug", func(w http.ResponseWriter, r *http.Request) {
+	protectedMux.HandleFunc("GET /debug", func(w http.ResponseWriter, r *http.Request) {
 		apiKey := r.Header.Get(mw.HeaderAPIKey)
 		ip := mw.ExtractIP(r)
 
@@ -124,8 +117,21 @@ func main() {
 		fmt.Fprintf(w, `{"identifier":"%s","count":%d,"blocked":%v}`, identifier, count, isBlocked)
 	})
 
-	// Aplica o middleware de rate limiting
-	handler := rateLimiterMiddleware.Handler(mux)
+	// Aplica o middleware de rate limiting apenas às rotas protegidas
+	protectedHandler := rateLimiterMiddleware.Handler(protectedMux)
+
+	// Cria o mux principal
+	mainMux := http.NewServeMux()
+
+	// Rota de health check (NÃO protegida por rate limiting)
+	mainMux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"healthy"}`))
+	})
+
+	// Todas as outras rotas passam pelo middleware
+	mainMux.Handle("/", protectedHandler)
 
 	// Inicia o servidor
 	port := os.Getenv("SERVER_PORT")
@@ -141,7 +147,7 @@ func main() {
 	log.Printf("  Token Enabled: %v", tokenEnabled)
 	log.Printf("  Tokens: %d configured", len(tokens))
 
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	if err := http.ListenAndServe(addr, mainMux); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

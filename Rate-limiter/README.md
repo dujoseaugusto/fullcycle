@@ -303,22 +303,26 @@ curl -H "API_KEY: enterprise" http://localhost:8080/  # ✅ Permitida
 
 ## Testes
 
-### Executar Todos os Testes
+### Executar Testes Unitários
 
 ```bash
 go test ./... -v
 ```
 
-### Executar Testes Específicos
+Todos os testes devem passar ✓
 
-**Testes do Limiter:**
+### Executar Testes de Integração com TestContainers
+
+Para executar os testes de integração com Redis real (requer Docker):
+
 ```bash
-go test -v ./internal/limiter
+go test ./... -v -tags=integration
 ```
 
-**Testes do Middleware:**
+Ou especificamente os testes de integração do storage:
+
 ```bash
-go test -v ./internal/middleware
+go test -v -tags=integration ./internal/storage
 ```
 
 ### Cobertura de Testes
@@ -327,22 +331,123 @@ go test -v ./internal/middleware
 go test ./... -cover
 ```
 
-### Casos de Teste Inclusos
+Para gerar relatório detalhado:
 
-#### Limiter Tests
-- ✅ `TestCheckLimitWithIP` - Limitação por IP
-- ✅ `TestCheckLimitWithToken` - Limitação por token
-- ✅ `TestTokenOverridesIP` - Token sobrescreve IP
-- ✅ `TestParseTokenConfig` - Parse de configuração
-- ✅ `TestBlockedIdentifierIsRejected` - Rejeição de bloqueados
+```bash
+go test ./... -coverprofile=coverage.out
+go tool cover -html=coverage.out
+```
 
-#### Middleware Tests
-- ✅ `TestMiddlewareAllowsRequests` - Permite requisições
-- ✅ `TestMiddlewareWithToken` - Token no middleware
-- ✅ `TestExtractIP` - Extração de IP
-- ✅ `TestMiddlewareWith429Response` - Retorna 429
+### Casos de Teste Unitários Implementados
 
-## Extensibilidade
+#### Testes do Limiter (`internal/limiter/limiter_test.go`)
+- ✅ `TestCheckLimitWithIP` - Verifica limitação por IP com 5 requisições
+- ✅ `TestCheckLimitWithToken` - Verifica limitação por token com 10 requisições
+- ✅ `TestTokenOverridesIP` - Valida que token sobrescreve limite de IP
+- ✅ `TestParseTokenConfig` - Testa parse de configuração de tokens
+- ✅ `TestBlockedIdentifierIsRejected` - Verifica rejeição de IPs/tokens bloqueados
+
+#### Testes do Middleware (`internal/middleware/middleware_test.go`)
+- ✅ `TestMiddlewareAllowsRequests` - Verifica permissão de requisições dentro do limite
+- ✅ `TestMiddlewareWithToken` - Testa middleware com token no header
+- ✅ `TestExtractIP` - Testa extração de IP (direto, X-Forwarded-For, X-Real-IP)
+- ✅ `TestMiddlewareWith429Response` - Valida resposta HTTP 429
+
+#### Testes de Integração com TestContainers (`internal/storage/redis_integration_test.go`)
+- ✅ `TestRedisStorageIntegration/Increment` - Testa incremento com Redis real
+- ✅ `TestRedisStorageIntegration/Block` - Testa bloqueio com Redis real
+
+### Executar com Coverage
+
+```bash
+go test ./... -v -coverprofile=coverage.out
+```
+
+## Revisão de Código e Lógica
+
+### Pontos de Design Importantes
+
+#### 1. **Separação de Responsabilidades**
+- `limiter.go` - Contém apenas a lógica de rate limiting
+- `middleware.go` - Integração HTTP, extração de IP/token
+- `storage.go` + `redis.go` - Persistência através de interface Strategy
+
+#### 2. **Headers HTTP de Rate Limiting**
+- `X-RateLimit-Remaining` - Número de requisições restantes (apenas para IP, não para token)
+- `Retry-After` - Tempo em segundos até poder fazer nova requisição (apenas quando bloqueado)
+
+Exemplo de resposta bloqueada:
+```
+HTTP/1.1 429 Too Many Requests
+Retry-After: 300
+Content-Type: text/plain
+
+you have reached the maximum number of requests or actions allowed within a certain time frame
+```
+
+#### 3. **Proteção de Health Check**
+A rota `/health` está fora do middleware de rate limiting para permitir monitoramento contínuo.
+
+```go
+// Health check: sem rate limiting
+mainMux.HandleFunc("GET /health", ...)
+
+// Rotas de negócio: com rate limiting
+mainMux.Handle("/", rateLimiterMiddleware.Handler(protectedMux))
+```
+
+#### 4. **Bloqueio com TTL no Redis**
+- Quando um identificador (IP ou token) excede o limite, é imediatamente bloqueado
+- O bloqueio é armazenado em `blocked:{identifier}` no Redis
+- O contador é resetado quando o bloqueio é aplicado
+- Ambos os dados expiram via TTL do Redis
+
+#### 5. **Override de Token sobre IP**
+Se um token está configurado, seu limite é usado. Caso contrário, usa o limite de IP:
+
+```go
+if isToken && rl.config.TokenEnabled {
+    if tokenCfg, exists := rl.config.Tokens[identifier]; exists {
+        limit = tokenCfg.RequestLimit  // Usa limite do token
+    } else {
+        limit = rl.config.IPLimit  // Fallback para IP limit
+    }
+}
+```
+
+#### 6. **Extração de IP Robusta**
+Suporta proxies e load balancers:
+
+```
+1. X-Forwarded-For (proxy chain)
+2. X-Real-IP (nginx reverse proxy)
+3. RemoteAddr (conexão direta)
+```
+
+### Verificação de Requisitos
+
+| Requisito | Implementado | Arquivo |
+|-----------|-------------|---------|
+| Rate limiting por IP | ✅ | `limiter.go`, `middleware.go` |
+| Rate limiting por token | ✅ | `limiter.go`, `middleware.go` |
+| Token override IP | ✅ | `limiter.go` linha 52-62 |
+| Middleware injetável | ✅ | `middleware.go` |
+| Configuração por env vars | ✅ | `main.go` linha 18-30 |
+| HTTP 429 com mensagem | ✅ | `middleware.go` linha 56-60 |
+| Redis Strategy | ✅ | `storage.go`, `redis.go` |
+| TTL/Bloqueio | ✅ | `redis.go` linha 98-108 |
+| Teste unitários | ✅ | `*_test.go` |
+| Docker Compose | ✅ | `docker-compose.yml` |
+| Porta 8080 | ✅ | `main.go`, `.env` |
+
+### Possíveis Melhorias Futuras
+
+1. **Sliding Window Counter** - Usar janela deslizante em vez de contador fixo
+2. **Token Bucket Algorithm** - Permitir burst de requisições
+3. **Distributed Rate Limiting** - Usar Redis Lua scripts para operações atômicas em cluster
+4. **Metrics** - Integração com Prometheus/Grafana
+5. **Rate Limit Groups** - Agrupar múltiplos IPs/tokens
+6. **Whitelist** - Exceções para IPs confiáveis
 
 ### Implementando um Novo Storage Backend
 
