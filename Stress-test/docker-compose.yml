@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  stress-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: stress-test-cli
+    # Exemplo de uso - descomente e modifique conforme necessário
+    # Ou execute: docker-compose run stress-test --url=http://google.com --requests=1000 --concurrency=10
+    command: --url=http://localhost:8080 --requests=100 --concurrency=10
+    # Para usar interativamente, descomente a linha abaixo:
+    # stdin_open: true
+    # tty: true
