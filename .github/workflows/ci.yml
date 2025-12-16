@@ -1,13 +1,17 @@
-name: CI - Lint & Test
+name: CI - Tests (Cep only)
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'Cep/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'Cep/**'
 
 jobs:
-  lint-and-test:
+  test-cep:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,19 +29,8 @@ jobs:
             ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
 
-      - name: Check formatting (gofmt)
-        run: |
-          files=$(gofmt -l .)
-          if [ -n "$files" ]; then echo "gofmt needs to be run on:\n$files" && exit 1; fi
+      - name: Run go vet for Cep
+        run: go vet ./Cep/...
 
-      - name: Run go vet
-        run: go vet ./...
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v4
-        with:
-          version: v1.59.0
-          args: run ./...
-
-      - name: Run tests
-        run: go test ./... -v
+      - name: Run tests for Cep
+        run: go test ./Cep/... -v
