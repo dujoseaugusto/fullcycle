@@ -1,0 +1,52 @@
+version: '3.8'
+services:
+  zipkin:
+    image: openzipkin/zipkin:2.23.2
+    container_name: zipkin
+    ports:
+      - "9411:9411"
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector:0.81.0
+    container_name: otel-collector
+    volumes:
+      - ./collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    command: ["--config", "/etc/otel-collector-config.yaml"]
+    ports:
+      - "4318:4318" # OTLP HTTP
+    restart: unless-stopped
+    depends_on:
+      - zipkin
+
+  service-b:
+    build:
+      context: ./service-b
+    container_name: service-b
+    ports:
+      - "8081:8081"
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      OTEL_SERVICE_NAME: "service-b"
+    restart: unless-stopped
+    depends_on:
+      - otel-collector
+
+  service-a:
+    build:
+      context: ./service-a
+    container_name: service-a
+    ports:
+      - "8080:8080"
+    environment:
+      SERVICE_B_URL: "http://service-b:8081"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      OTEL_SERVICE_NAME: "service-a"
+    restart: unless-stopped
+    depends_on:
+      - service-b
+      - otel-collector
+
+networks:
+  default:
+    name: cep-climate_default
