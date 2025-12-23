@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Cep-climate — Test Requests</title>
+  <style>
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:24px}
+    pre{background:#0b1220;color:#e6eef8;padding:12px;border-radius:6px;overflow:auto}
+    .btn{display:inline-block;margin-top:6px;padding:6px 10px;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none}
+    h1,h2{color:#0f172a}
+    .note{color:#475569}
+  </style>
+</head>
+<body>
+  <h1>Cep-climate — Test Requests</h1>
+  <p class="note">Esta página reúne exemplos de <code>curl</code> que você pode colar no terminal ou importar para o Postman.</p>
+
+  <h2>1) CEP válido (via Service A)</h2>
+  <p>Retorna <strong>200</strong> com cidade e temperaturas.</p>
+  <pre id="c1">curl -X POST -H "Content-Type: application/json" -d '{"cep":"37890000"}' http://localhost:8080/zipcode</pre>
+  <a class="btn" href="#" onclick="copy('c1');return false">Copiar</a>
+
+  <h2>2) Formato inválido (tamanho != 8) — espera <strong>422</strong></h2>
+  <pre id="c2">curl -X POST -H "Content-Type: application/json" -d '{"cep":"12345"}' http://localhost:8080/zipcode -i</pre>
+  <a class="btn" href="#" onclick="copy('c2');return false">Copiar</a>
+
+  <h2>3) Campo não-string (número) — espera <strong>400</strong></h2>
+  <pre id="c3">curl -X POST -H "Content-Type: application/json" -d '{"cep":12345678}' http://localhost:8080/zipcode -i</pre>
+  <a class="btn" href="#" onclick="copy('c3');return false">Copiar</a>
+
+  <h2>4) CEP formato correto mas não encontrado — espera <strong>404</strong></h2>
+  <pre id="c4">curl -X POST -H "Content-Type: application/json" -d '{"cep":"00000000"}' http://localhost:8080/zipcode -i</pre>
+  <a class="btn" href="#" onclick="copy('c4');return false">Copiar</a>
+
+  <h2>5) Chamar Service B diretamente</h2>
+  <pre id="c5">curl -X POST -H "Content-Type: application/json" -d '{"cep":"37890000"}' http://localhost:8081/zipcode -i</pre>
+  <a class="btn" href="#" onclick="copy('c5');return false">Copiar</a>
+
+  <h2>Logs & Tracing</h2>
+  <pre id="c6">docker-compose logs --tail=200 service-a
+
+docker-compose logs --tail=200 service-b
+
+# Zipkin UI: http://localhost:9411</pre>
+  <a class="btn" href="#" onclick="copy('c6');return false">Copiar</a>
+
+  <h2>Como servir esta página</h2>
+  <p>Você pode abrir o arquivo localmente (file://) ou servir via um servidor simples:</p>
+  <pre id="c7">cd Cep-climate
+python3 -m http.server 9000
+# Depois abra http://localhost:9000/test-requests.html</pre>
+  <a class="btn" href="#" onclick="copy('c7');return false">Copiar</a>
+
+  <script>
+    function copy(id){
+      const t = document.getElementById(id).innerText;
+      navigator.clipboard.writeText(t).then(()=>{alert('Copiado para área de transferência')}).catch(()=>{alert('Não foi possível copiar')});
+    }
+  </script>
+</body>
+</html>

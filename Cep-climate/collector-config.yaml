@@ -7,7 +7,7 @@ exporters:
   zipkin:
     endpoint: "http://zipkin:9411/api/v2/spans"
   logging:
-    logLevel: info
+    loglevel: info
 
 service:
   pipelines:

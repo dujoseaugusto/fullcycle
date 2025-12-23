@@ -59,3 +59,20 @@ Variáveis de ambiente úteis (veja `.env.example`):
 - `OTEL_EXPORTER_OTLP_ENDPOINT` — endpoint OTLP do collector (padrão `http://otel-collector:4318` no docker)
 
 Se for enviar para um repositório público, garanta que `go.sum` está incluído nos diretórios `service-a` e `service-b` (já incluídos aqui) para que quem baixar não precise rebuildar dependências.
+
+Test requests page:
+
+- Um arquivo HTML com exemplos de `curl` foi adicionado em `test-requests.html`.
+- Para abrir localmente:
+
+```bash
+cd Cep-climate
+# abrir com o navegador via arquivo
+xdg-open test-requests.html
+
+# ou servir via HTTP simples
+python3 -m http.server 9000
+# depois abra http://localhost:9000/test-requests.html
+```
+
+O arquivo contém os exemplos de cURL prontos para copiar e colar no terminal ou importar no Postman.

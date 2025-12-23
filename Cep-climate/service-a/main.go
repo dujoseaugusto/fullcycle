@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
@@ -25,6 +26,12 @@ func initTracer(ctx context.Context) func(context.Context) error {
 	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
 	if endpoint == "" {
 		endpoint = "http://localhost:4318"
+	}
+	// otlptracehttp.WithEndpoint expects host:port without scheme; strip scheme if present
+	if strings.HasPrefix(endpoint, "http://") {
+		endpoint = strings.TrimPrefix(endpoint, "http://")
+	} else if strings.HasPrefix(endpoint, "https://") {
+		endpoint = strings.TrimPrefix(endpoint, "https://")
 	}
 	exporter, err := otlptracehttp.New(ctx, otlptracehttp.WithEndpoint(endpoint), otlptracehttp.WithInsecure())
 	if err != nil {
